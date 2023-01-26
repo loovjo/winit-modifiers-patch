@@ -256,6 +256,21 @@ pub(super) fn event_mods(event: &NSEvent) -> ModifiersState {
         ModifiersState::LOGO,
         flags.contains(NSEventModifierFlags::NSCommandKeyMask),
     );
+
+    // sowwy
+    // const NX_DEVICELCTLKEYMASK: NSEventModifierFlags = unsafe { NSEventModifierFlags::from_bits_unchecked(0x00000001) };
+    // const NX_DEVICELSHIFTKEYMASK: NSEventModifierFlags = unsafe { NSEventModifierFlags::from_bits_unchecked(0x00000002) };
+    // const NX_DEVICERSHIFTKEYMASK: NSEventModifierFlags = unsafe { NSEventModifierFlags::from_bits_unchecked(0x00000004) };
+    // const NX_DEVICELCMDKEYMASK: NSEventModifierFlags = unsafe { NSEventModifierFlags::from_bits_unchecked(0x00000008) };
+    // const NX_DEVICERCMDKEYMASK: NSEventModifierFlags = unsafe { NSEventModifierFlags::from_bits_unchecked(0x00000010) };
+    const NX_DEVICELALTKEYMASK: NSEventModifierFlags = unsafe { NSEventModifierFlags::from_bits_unchecked(0x00000020) };
+    // const NX_DEVICERALTKEYMASK: NSEventModifierFlags = unsafe { NSEventModifierFlags::from_bits_unchecked(0x00000040) };
+    // const NX_DEVICE_ALPHASHIFT_STATELESS_MASK: NSEventModifierFlags = unsafe { NSEventModifierFlags::from_bits_unchecked(0x00000080) };
+    // const NX_DEVICERCTLKEYMASK: NSEventModifierFlags = unsafe { NSEventModifierFlags::from_bits_unchecked(0x00002000) };
+
+    if flags.contains(NX_DEVICELALTKEYMASK) {
+        m.remove(ModifiersState::ALT);
+    }
     m
 }
 
