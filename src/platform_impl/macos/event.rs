@@ -351,7 +351,7 @@ pub(super) fn event_mods(event: &NSEvent) -> Modifiers {
 
     state.set(
         ModifiersState::ALT,
-        flags.contains(NSEventModifierFlags::NSAlternateKeyMask),
+        flags.contains(NSEventModifierFlags::NSAlternateKeyMask) && !event.lalt_pressed(),
     );
 
     pressed_mods.set(ModifiersKeys::LALT, event.lalt_pressed());
@@ -361,22 +361,6 @@ pub(super) fn event_mods(event: &NSEvent) -> Modifiers {
         ModifiersState::SUPER,
         flags.contains(NSEventModifierFlags::NSCommandKeyMask),
     );
-
-    // sowwy
-    // const NX_DEVICELCTLKEYMASK: NSEventModifierFlags = unsafe { NSEventModifierFlags::from_bits(0x00000001) };
-    // const NX_DEVICELSHIFTKEYMASK: NSEventModifierFlags = unsafe { NSEventModifierFlags::from_bits(0x00000002) };
-    // const NX_DEVICERSHIFTKEYMASK: NSEventModifierFlags = unsafe { NSEventModifierFlags::from_bits(0x00000004) };
-    // const NX_DEVICELCMDKEYMASK: NSEventModifierFlags = unsafe { NSEventModifierFlags::from_bits(0x00000008) };
-    // const NX_DEVICERCMDKEYMASK: NSEventModifierFlags = unsafe { NSEventModifierFlags::from_bits(0x00000010) };
-    #[allow(non_snake_case)]
-    let NX_DEVICELALTKEYMASK: NSEventModifierFlags = NSEventModifierFlags::from_bits(0x00000020).unwrap();
-    // const NX_DEVICERALTKEYMASK: NSEventModifierFlags = unsafe { NSEventModifierFlags::from_bits(0x00000040) };
-    // const NX_DEVICE_ALPHASHIFT_STATELESS_MASK: NSEventModifierFlags = unsafe { NSEventModifierFlags::from_bits(0x00000080) };
-    // const NX_DEVICERCTLKEYMASK: NSEventModifierFlags = unsafe { NSEventModifierFlags::from_bits(0x00002000) };
-
-    if flags.contains(NX_DEVICELALTKEYMASK) {
-        pressed_mods.set(ModifiersKeys::LALT, false);
-    }
 
     pressed_mods.set(ModifiersKeys::LSUPER, event.lcmd_pressed());
     pressed_mods.set(ModifiersKeys::RSUPER, event.rcmd_pressed());
