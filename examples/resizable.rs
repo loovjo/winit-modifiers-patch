@@ -3,14 +3,18 @@
 use simple_logger::SimpleLogger;
 use winit::{
     dpi::LogicalSize,
-    event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
+    event::{ElementState, Event, KeyEvent, WindowEvent},
     event_loop::EventLoop,
+    keyboard::{KeyCode, PhysicalKey},
     window::WindowBuilder,
 };
 
-fn main() {
+#[path = "util/fill.rs"]
+mod fill;
+
+fn main() -> Result<(), impl std::error::Error> {
     SimpleLogger::new().init().unwrap();
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoop::new().unwrap();
 
     let mut resizable = false;
 
@@ -23,16 +27,14 @@ fn main() {
         .build(&event_loop)
         .unwrap();
 
-    event_loop.run(move |event, _, control_flow| {
-        control_flow.set_wait();
-
-        match event {
-            Event::WindowEvent { event, .. } => match event {
-                WindowEvent::CloseRequested => control_flow.set_exit(),
+    event_loop.run(move |event, elwt| {
+        if let Event::WindowEvent { event, .. } = event {
+            match event {
+                WindowEvent::CloseRequested => elwt.exit(),
                 WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            virtual_keycode: Some(VirtualKeyCode::Space),
+                    event:
+                        KeyEvent {
+                            physical_key: PhysicalKey::Code(KeyCode::Space),
                             state: ElementState::Released,
                             ..
                         },
@@ -42,9 +44,11 @@ fn main() {
                     println!("Resizable: {resizable}");
                     window.set_resizable(resizable);
                 }
+                WindowEvent::RedrawRequested => {
+                    fill::fill_window(&window);
+                }
                 _ => (),
-            },
-            _ => (),
+            }
         };
-    });
+    })
 }

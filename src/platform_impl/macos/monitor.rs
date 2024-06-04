@@ -7,8 +7,10 @@ use core_foundation::{
     base::{CFRelease, TCFType},
     string::CFString,
 };
-use core_graphics::display::{CGDirectDisplayID, CGDisplay, CGDisplayBounds};
-use objc2::rc::{Id, Shared};
+use core_graphics::display::{
+    CGDirectDisplayID, CGDisplay, CGDisplayBounds, CGDisplayCopyDisplayMode,
+};
+use objc2::rc::Id;
 
 use super::appkit::NSScreen;
 use super::ffi;
@@ -216,6 +218,12 @@ impl MonitorHandle {
 
     pub fn refresh_rate_millihertz(&self) -> Option<u32> {
         unsafe {
+            let current_display_mode = NativeDisplayMode(CGDisplayCopyDisplayMode(self.0) as _);
+            let refresh_rate = ffi::CGDisplayModeGetRefreshRate(current_display_mode.0);
+            if refresh_rate > 0.0 {
+                return Some((refresh_rate * 1000.0).round() as u32);
+            }
+
             let mut display_link = std::ptr::null_mut();
             if ffi::CVDisplayLinkCreateWithCGDisplay(self.0, &mut display_link)
                 != ffi::kCVReturnSuccess
@@ -230,7 +238,9 @@ impl MonitorHandle {
                 return None;
             }
 
-            Some((time.time_scale as i64 / time.time_value * 1000) as u32)
+            (time.time_scale as i64)
+                .checked_div(time.time_value)
+                .map(|v| (v * 1000) as u32)
         }
     }
 
@@ -293,19 +303,14 @@ impl MonitorHandle {
         }
     }
 
-    pub(crate) fn ns_screen(&self) -> Option<Id<NSScreen, Shared>> {
+    pub(crate) fn ns_screen(&self) -> Option<Id<NSScreen>> {
         let uuid = unsafe { ffi::CGDisplayCreateUUIDFromDisplayID(self.0) };
-        NSScreen::screens()
-            .into_iter()
-            .find(|screen| {
-                let other_native_id = screen.display_id();
-                let other_uuid = unsafe {
-                    ffi::CGDisplayCreateUUIDFromDisplayID(other_native_id as CGDirectDisplayID)
-                };
-                uuid == other_uuid
-            })
-            .map(|screen| unsafe {
-                Id::retain(screen as *const NSScreen as *mut NSScreen).unwrap()
-            })
+        NSScreen::screens().into_iter().find(|screen| {
+            let other_native_id = screen.display_id();
+            let other_uuid = unsafe {
+                ffi::CGDisplayCreateUUIDFromDisplayID(other_native_id as CGDirectDisplayID)
+            };
+            uuid == other_uuid
+        })
     }
 }

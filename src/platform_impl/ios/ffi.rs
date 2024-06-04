@@ -1,30 +1,9 @@
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
-use std::convert::TryInto;
-
+use icrate::Foundation::{NSInteger, NSUInteger};
 use objc2::encode::{Encode, Encoding};
-use objc2::foundation::{NSInteger, NSUInteger};
 
 use crate::platform::ios::{Idiom, ScreenEdge};
-
-#[repr(C)]
-#[derive(Clone, Debug)]
-pub struct NSOperatingSystemVersion {
-    pub major: NSInteger,
-    pub minor: NSInteger,
-    pub patch: NSInteger,
-}
-
-unsafe impl Encode for NSOperatingSystemVersion {
-    const ENCODING: Encoding = Encoding::Struct(
-        "NSOperatingSystemVersion",
-        &[
-            NSInteger::ENCODING,
-            NSInteger::ENCODING,
-            NSInteger::ENCODING,
-        ],
-    );
-}
 
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -69,6 +48,10 @@ impl From<UIUserInterfaceIdiom> for Idiom {
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct UIRectEdge(NSUInteger);
+
+impl UIRectEdge {
+    pub(crate) const NONE: Self = Self(0);
+}
 
 unsafe impl Encode for UIRectEdge {
     const ENCODING: Encoding = NSUInteger::ENCODING;

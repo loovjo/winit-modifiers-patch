@@ -11,6 +11,7 @@ use core_graphics::{
     base::CGError,
     display::{CGDirectDisplayID, CGDisplayConfigRef},
 };
+use objc2::{ffi::NSInteger, runtime::AnyObject};
 
 pub type CGDisplayFadeInterval = f32;
 pub type CGDisplayReservationInterval = f32;
@@ -113,6 +114,14 @@ extern "C" {
     pub fn CGDisplayModeCopyPixelEncoding(mode: CGDisplayModeRef) -> CFStringRef;
     pub fn CGDisplayModeRetain(mode: CGDisplayModeRef);
     pub fn CGDisplayModeRelease(mode: CGDisplayModeRef);
+
+    // Wildly used private APIs; Apple uses them for their Terminal.app.
+    pub fn CGSMainConnectionID() -> *mut AnyObject;
+    pub fn CGSSetWindowBackgroundBlurRadius(
+        connection_id: *mut AnyObject,
+        window_id: NSInteger,
+        radius: i64,
+    ) -> i32;
 }
 
 mod core_video {
@@ -156,3 +165,48 @@ mod core_video {
 }
 
 pub use core_video::*;
+#[repr(transparent)]
+pub struct TISInputSource(std::ffi::c_void);
+pub type TISInputSourceRef = *mut TISInputSource;
+
+#[repr(transparent)]
+pub struct UCKeyboardLayout(std::ffi::c_void);
+
+pub type OptionBits = u32;
+pub type UniCharCount = std::os::raw::c_ulong;
+pub type UniChar = std::os::raw::c_ushort;
+pub type OSStatus = i32;
+
+#[allow(non_upper_case_globals)]
+pub const kUCKeyActionDisplay: u16 = 3;
+#[allow(non_upper_case_globals)]
+pub const kUCKeyTranslateNoDeadKeysMask: OptionBits = 1;
+
+#[link(name = "Carbon", kind = "framework")]
+extern "C" {
+    pub static kTISPropertyUnicodeKeyLayoutData: CFStringRef;
+
+    #[allow(non_snake_case)]
+    pub fn TISGetInputSourceProperty(
+        inputSource: TISInputSourceRef,
+        propertyKey: CFStringRef,
+    ) -> *mut c_void;
+
+    pub fn TISCopyCurrentKeyboardLayoutInputSource() -> TISInputSourceRef;
+
+    pub fn LMGetKbdType() -> u8;
+
+    #[allow(non_snake_case)]
+    pub fn UCKeyTranslate(
+        keyLayoutPtr: *const UCKeyboardLayout,
+        virtualKeyCode: u16,
+        keyAction: u16,
+        modifierKeyState: u32,
+        keyboardType: u32,
+        keyTranslateOptions: OptionBits,
+        deadKeyState: *mut u32,
+        maxStringLength: UniCharCount,
+        actualStringLength: *mut UniCharCount,
+        unicodeString: *mut UniChar,
+    ) -> OSStatus;
+}

@@ -1,7 +1,7 @@
 use crate::{
     dpi::{PhysicalPosition, PhysicalSize, Size},
-    event::ModifiersState,
     icon::Icon,
+    keyboard::ModifiersState,
     platform_impl::platform::{event_loop, util, Fullscreen},
     window::{CursorIcon, Theme, WindowAttributes},
 };
@@ -42,7 +42,7 @@ pub(crate) struct WindowState {
     pub fullscreen: Option<Fullscreen>,
     pub current_theme: Theme,
     pub preferred_theme: Option<Theme>,
-    pub high_surrogate: Option<u16>,
+
     pub window_flags: WindowFlags,
 
     pub ime_state: ImeState,
@@ -51,6 +51,9 @@ pub(crate) struct WindowState {
     // Used by WM_NCACTIVATE, WM_SETFOCUS and WM_KILLFOCUS
     pub is_active: bool,
     pub is_focused: bool,
+
+    // Flag whether redraw was requested.
+    pub redraw_requested: bool,
 
     pub dragging: bool,
 
@@ -71,6 +74,7 @@ pub struct MouseProperties {
 }
 
 bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct CursorFlags: u8 {
         const GRABBED   = 1 << 0;
         const HIDDEN    = 1 << 1;
@@ -78,6 +82,7 @@ bitflags! {
     }
 }
 bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct WindowFlags: u32 {
         const RESIZABLE         = 1 << 0;
         const MINIMIZABLE       = 1 << 1;
@@ -118,7 +123,7 @@ bitflags! {
 
         const MARKER_ACTIVATE = 1 << 21;
 
-        const EXCLUSIVE_FULLSCREEN_OR_MASK = WindowFlags::ALWAYS_ON_TOP.bits;
+        const EXCLUSIVE_FULLSCREEN_OR_MASK = WindowFlags::ALWAYS_ON_TOP.bits();
     }
 }
 
@@ -157,7 +162,6 @@ impl WindowState {
             fullscreen: None,
             current_theme,
             preferred_theme,
-            high_surrogate: None,
             window_flags: WindowFlags::empty(),
 
             ime_state: ImeState::Disabled,
@@ -165,6 +169,7 @@ impl WindowState {
 
             is_active: false,
             is_focused: false,
+            redraw_requested: false,
 
             dragging: false,
 
@@ -371,10 +376,11 @@ impl WindowFlags {
 
         if diff.contains(WindowFlags::CLOSABLE) || new.contains(WindowFlags::CLOSABLE) {
             let flags = MF_BYCOMMAND
-                | new
-                    .contains(WindowFlags::CLOSABLE)
-                    .then(|| MF_ENABLED)
-                    .unwrap_or(MF_DISABLED);
+                | if new.contains(WindowFlags::CLOSABLE) {
+                    MF_ENABLED
+                } else {
+                    MF_DISABLED
+                };
 
             unsafe {
                 EnableMenuItem(GetSystemMenu(window, 0), SC_CLOSE, flags);

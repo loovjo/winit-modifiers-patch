@@ -1,5 +1,6 @@
 #![cfg(windows_platform)]
 
+use smol_str::SmolStr;
 use windows_sys::Win32::{
     Foundation::{HANDLE, HWND},
     UI::WindowsAndMessaging::{HMENU, WINDOW_LONG_PTR_INDEX},
@@ -15,10 +16,11 @@ pub(crate) use self::{
 };
 
 pub use self::icon::WinIcon as PlatformIcon;
-pub(self) use crate::platform_impl::Fullscreen;
+use crate::platform_impl::Fullscreen;
 
 use crate::event::DeviceId as RootDeviceId;
 use crate::icon::Icon;
+use crate::keyboard::Key;
 
 #[derive(Clone)]
 pub struct PlatformSpecificWindowBuilderAttributes {
@@ -28,6 +30,7 @@ pub struct PlatformSpecificWindowBuilderAttributes {
     pub no_redirection_bitmap: bool,
     pub drag_and_drop: bool,
     pub skip_taskbar: bool,
+    pub class_name: String,
     pub decoration_shadow: bool,
 }
 
@@ -40,6 +43,7 @@ impl Default for PlatformSpecificWindowBuilderAttributes {
             no_redirection_bitmap: false,
             drag_and_drop: true,
             skip_taskbar: false,
+            class_name: "Window Class".to_string(),
             decoration_shadow: false,
         }
     }
@@ -47,12 +51,6 @@ impl Default for PlatformSpecificWindowBuilderAttributes {
 
 unsafe impl Send for PlatformSpecificWindowBuilderAttributes {}
 unsafe impl Sync for PlatformSpecificWindowBuilderAttributes {}
-
-// Cursor name in UTF-16. Used to set cursor in `WM_SETCURSOR`.
-#[derive(Debug, Clone, Copy)]
-pub struct Cursor(pub *const u16);
-unsafe impl Send for Cursor {}
-unsafe impl Sync for Cursor {}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DeviceId(u32);
@@ -81,6 +79,12 @@ fn wrap_device_id(id: u32) -> RootDeviceId {
 }
 
 pub type OsError = std::io::Error;
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct KeyEventExtra {
+    pub text_with_all_modifers: Option<SmolStr>,
+    pub key_without_modifiers: Key,
+}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct WindowId(HWND);
@@ -127,7 +131,12 @@ const fn get_y_lparam(x: u32) -> i16 {
 }
 
 #[inline(always)]
-const fn loword(x: u32) -> u16 {
+pub(crate) const fn primarylangid(lgid: u16) -> u16 {
+    lgid & 0x3FF
+}
+
+#[inline(always)]
+pub(crate) const fn loword(x: u32) -> u16 {
     (x & 0xFFFF) as u16
 }
 
@@ -139,21 +148,24 @@ const fn hiword(x: u32) -> u16 {
 #[inline(always)]
 unsafe fn get_window_long(hwnd: HWND, nindex: WINDOW_LONG_PTR_INDEX) -> isize {
     #[cfg(target_pointer_width = "64")]
-    return windows_sys::Win32::UI::WindowsAndMessaging::GetWindowLongPtrW(hwnd, nindex);
+    return unsafe { windows_sys::Win32::UI::WindowsAndMessaging::GetWindowLongPtrW(hwnd, nindex) };
     #[cfg(target_pointer_width = "32")]
-    return windows_sys::Win32::UI::WindowsAndMessaging::GetWindowLongW(hwnd, nindex) as isize;
+    return unsafe {
+        windows_sys::Win32::UI::WindowsAndMessaging::GetWindowLongW(hwnd, nindex) as isize
+    };
 }
 
 #[inline(always)]
 unsafe fn set_window_long(hwnd: HWND, nindex: WINDOW_LONG_PTR_INDEX, dwnewlong: isize) -> isize {
     #[cfg(target_pointer_width = "64")]
-    return windows_sys::Win32::UI::WindowsAndMessaging::SetWindowLongPtrW(hwnd, nindex, dwnewlong);
+    return unsafe {
+        windows_sys::Win32::UI::WindowsAndMessaging::SetWindowLongPtrW(hwnd, nindex, dwnewlong)
+    };
     #[cfg(target_pointer_width = "32")]
-    return windows_sys::Win32::UI::WindowsAndMessaging::SetWindowLongW(
-        hwnd,
-        nindex,
-        dwnewlong as i32,
-    ) as isize;
+    return unsafe {
+        windows_sys::Win32::UI::WindowsAndMessaging::SetWindowLongW(hwnd, nindex, dwnewlong as i32)
+            as isize
+    };
 }
 
 #[macro_use]
@@ -162,10 +174,11 @@ mod dark_mode;
 mod definitions;
 mod dpi;
 mod drop_handler;
-mod event;
 mod event_loop;
 mod icon;
 mod ime;
+mod keyboard;
+mod keyboard_layout;
 mod monitor;
 mod raw_input;
 mod window;
